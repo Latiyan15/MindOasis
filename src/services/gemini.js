@@ -3,7 +3,8 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL = 'google/gemini-2.0-flash-001';
 
 function getApiKey() {
-  return import.meta.env.VITE_OPENROUTER_API_KEY || '';
+  const key = import.meta.env.VITE_OPENROUTER_API_KEY || '';
+  return key.trim();
 }
 
 export async function callGeminiRaw(systemPrompt, userMessage, temperature = 0.7) {
@@ -12,6 +13,7 @@ export async function callGeminiRaw(systemPrompt, userMessage, temperature = 0.7
     throw new Error('NO_API_KEY');
   }
 
+  console.log('Sending request to:', OPENROUTER_URL);
   const response = await fetch(OPENROUTER_URL, {
     method: 'POST',
     headers: {
@@ -279,7 +281,8 @@ Total journal entries: ${journals.length}`;
     throw new Error('Parse failed');
   } catch (err) {
     if (err.message === 'NO_API_KEY') throw err;
-    console.error('Report generation error:', err);
+    console.error('Gemini API Technical Error:', err);
+    console.error('Request Details:', { url: OPENROUTER_URL, model: MODEL });
     const moodCounts = {};
     data.moods.forEach(m => { moodCounts[m.mood] = (moodCounts[m.mood] || 0) + 1; });
     return {
