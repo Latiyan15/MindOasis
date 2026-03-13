@@ -1,0 +1,29 @@
+
+> igdtu@0.0.0 build
+> vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32mΓ£ô[39m 1776 modules transformed.
+Γ£ù Build failed in 5.12s
+error during build:
+src/components/MoodActivities.jsx (6:9): "callGeminiRaw" is not exported by "src/services/gemini.js", imported by "src/components/MoodActivities.jsx".
+file: D:/IGDTU/src/components/MoodActivities.jsx:6:9
+
+4:   Sparkles, Heart, Zap, RefreshCw, Trophy, Star, Check, Send, Loader
+5: } from 'lucide-react';
+6: import { callGeminiRaw } from '../services/gemini';
+            ^
+7: 
+8: // ===== Breathing Exercise (Stressed) =====
+
+    at getRollupError (file:///D:/IGDTU/node_modules/rollup/dist/es/shared/parseAst.js:402:41)
+    at error (file:///D:/IGDTU/node_modules/rollup/dist/es/shared/parseAst.js:398:42)
+    at Module.error (file:///D:/IGDTU/node_modules/rollup/dist/es/shared/node-entry.js:17040:16)
+    at Module.traceVariable (file:///D:/IGDTU/node_modules/rollup/dist/es/shared/node-entry.js:17452:29)
+    at ModuleScope.findVariable (file:///D:/IGDTU/node_modules/rollup/dist/es/shared/node-entry.js:15070:39)
+    at FunctionScope.findVariable (file:///D:/IGDTU/node_modules/rollup/dist/es/shared/node-entry.js:5673:38)
+    at FunctionBodyScope.findVariable (file:///D:/IGDTU/node_modules/rollup/dist/es/shared/node-entry.js:5673:38)
+    at ReturnValueScope.findVariable (file:///D:/IGDTU/node_modules/rollup/dist/es/shared/node-entry.js:5673:38)
+    at FunctionBodyScope.findVariable (file:///D:/IGDTU/node_modules/rollup/dist/es/shared/node-entry.js:5673:38)
+    at BlockScope.findVariable (file:///D:/IGDTU/node_modules/rollup/dist/es/shared/node-entry.js:5673:38)
