@@ -3,7 +3,7 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL = 'google/gemini-2.0-flash-001';
 
 function getApiKey() {
-  return import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_OPENROUTER_API_KEY || '';
+  return import.meta.env.VITE_OPENROUTER_API_KEY || '';
 }
 
 export async function callGeminiRaw(systemPrompt, userMessage, temperature = 0.7) {
