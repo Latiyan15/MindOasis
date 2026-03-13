@@ -79,7 +79,7 @@ const selfCareActivities = [
 
 export default function Resources() {
   return (
-    <div className="fade-in">
+    <div className="fade-in premium-page">
       <div className="page-header">
         <h1>Support Resources 💙</h1>
         <p>You are not alone. Here are verified resources, helplines, and self-care activities for your well-being.</p>

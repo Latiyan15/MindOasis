@@ -57,7 +57,7 @@ export default function Simulator() {
   };
 
   return (
-    <div className="fade-in">
+    <div className="fade-in premium-page">
       <div className="page-header">
         <h1>Scenario Simulator 🎭</h1>
         <p>Practice navigating real-life situations. Gemini AI analyzes your choices and provides emotional guidance.</p>

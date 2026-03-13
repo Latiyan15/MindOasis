@@ -394,7 +394,7 @@ export default function Burnout() {
         {error && <div className="error-banner" style={{ position: 'absolute', top: 20, left: 20, right: 20, zIndex: 50 }}><AlertCircle size={16} />{error}</div>}
 
         {/* Main Content Layout */}
-        <div style={{ padding: '40px 6%', position: 'relative', zIndex: 10 }}>
+        <div style={{ padding: '40px 6% 140px 6%', position: 'relative', zIndex: 10 }}>
           
           <div style={{ marginBottom: 20 }}>
             <h1 style={{ fontSize: '2rem', color: '#4a5342', fontWeight: 800, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -469,7 +469,7 @@ export default function Burnout() {
   // ===== JOURNAL CONSENT =====
   if (mode === 'journal') {
     return (
-      <div className="fade-in">
+      <div className="fade-in premium-page">
         <div className="page-header">
           <h1>Journal Analysis 📖</h1>
           <p>Gemini AI will review your entries for burnout indicators.</p>
@@ -496,7 +496,7 @@ export default function Burnout() {
   // ===== QUIZ FLOW =====
   if (mode === 'quiz') {
     return (
-      <div className="fade-in">
+      <div className="fade-in premium-page">
         {/* Progress Bar */}
         <div className="daylio-progress">
           <div className="daylio-progress-bar">
@@ -575,7 +575,7 @@ export default function Burnout() {
   if (mode === 'result' && result) {
     const rColor = riskColor(result.risk_level);
     return (
-      <div className="fade-in">
+      <div className="fade-in premium-page">
         <div className="page-header">
           <h1>Your Results</h1>
         </div>
