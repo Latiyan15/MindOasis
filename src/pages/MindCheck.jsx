@@ -41,11 +41,59 @@ export default function MindCheck() {
   const [currentScenarioIdx, setCurrentScenarioIdx] = useState(0);
   const [selectedChoice, setSelectedChoice] = useState(null);
   const [history, setHistory] = useState([]);
-  
+  const [showExitModal, setShowExitModal] = useState(false);
   const addToast = useToast();
 
   const occData = OCCUPATION_LABELS[user?.occupation] || OCCUPATION_LABELS.other;
   const envData = ENV_LABELS[user?.environment] || { label: user?.environment || 'Not set', icon: '🏠' };
+
+  // Exit Modal Component
+  const ExitModal = () => (
+    <div className="modal-overlay fade-in" style={{ zIndex: 1100 }}>
+      <div className="card glass-card" style={{ width: '90%', maxWidth: 400, padding: 32, textAlign: 'center' }}>
+        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--rose-100)', color: 'var(--rose-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+          <RotateCcw size={32} />
+        </div>
+        <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 12 }}>End Session?</h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: 28, lineHeight: 1.6 }}>
+          Are you sure you want to leave? Your current assessment progress will be lost.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <button 
+            className="btn btn-primary" 
+            style={{ background: 'var(--rose-600)', border: 'none', padding: '14px' }}
+            onClick={() => {
+              reset();
+              setShowExitModal(false);
+            }}
+          >
+            End Session
+          </button>
+          <button 
+            className="btn btn-secondary" 
+            style={{ padding: '14px' }}
+            onClick={() => setShowExitModal(false)}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Close Button component
+  const CloseBtn = () => (
+    <button 
+      onClick={() => setShowExitModal(true)}
+      style={{
+        position: 'absolute', top: 16, right: 16, background: 'var(--gray-100)', color: 'var(--text-muted)',
+        border: 'none', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', zIndex: 10
+      }}
+    >
+      <X size={18} />
+    </button>
+  );
 
   // STEP 1: Begin assessment — generate tailored questions
   const handleBeginAssessment = async () => {
@@ -144,7 +192,8 @@ export default function MindCheck() {
   };
 
   return (
-    <div className="fade-in premium-page" style={{ maxWidth: 800, margin: '0 auto', paddingTop: 40 }}>
+    <div className="fade-in premium-page" style={{ maxWidth: 800, margin: '0 auto', paddingTop: 40, position: 'relative' }}>
+      {showExitModal && <ExitModal />}
 
       {/* ============ PHASE: PROFILE ============ */}
       {phase === 'profile' && (
@@ -233,7 +282,8 @@ export default function MindCheck() {
 
       {/* ============ PHASE: GENERATING QUESTIONS ============ */}
       {phase === 'generating' && (
-        <div className="fade-in" style={{ textAlign: 'center', padding: '100px 0' }}>
+        <div className="fade-in" style={{ textAlign: 'center', padding: '100px 0', position: 'relative' }}>
+          <CloseBtn />
           <div className="premium-icon-circle" style={{ margin: '0 auto 24px', animation: 'spin-slow 3s linear infinite' }}>
             <Stethoscope size={32} color="var(--primary-500)" />
           </div>
@@ -248,7 +298,8 @@ export default function MindCheck() {
 
       {/* ============ PHASE: ASSESSMENT (Dynamic Questions) ============ */}
       {phase === 'assessment' && currentQuestion && (
-        <div className="card glass-card fade-in" style={{ padding: '40px 30px', textAlign: 'center' }}>
+        <div className="card glass-card fade-in" style={{ padding: '40px 30px', textAlign: 'center', position: 'relative' }}>
+          <CloseBtn />
           {/* Progress Bar */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 30 }}>
             {dynamicQuestions.map((q, i) => (
@@ -328,7 +379,8 @@ export default function MindCheck() {
 
       {/* ============ PHASE: LOADING SCENARIOS ============ */}
       {phase === 'loading' && (
-        <div className="fade-in" style={{ textAlign: 'center', padding: '100px 0' }}>
+        <div className="fade-in" style={{ textAlign: 'center', padding: '100px 0', position: 'relative' }}>
+          <CloseBtn />
           <div className="premium-icon-circle" style={{ margin: '0 auto 24px', animation: 'spin-slow 3s linear infinite' }}>
             <Sparkles size={32} color="var(--primary-500)" />
           </div>
@@ -343,7 +395,8 @@ export default function MindCheck() {
 
       {/* ============ PHASE: SCENARIO LOOP ============ */}
       {phase === 'scenario' && currentScenario && (
-        <div className="card glass-card fade-in" style={{ padding: '40px 30px' }}>
+        <div className="card glass-card fade-in" style={{ padding: '40px 30px', position: 'relative' }}>
+          <CloseBtn />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30, borderBottom: '1px solid rgba(148,163,184,0.1)', paddingBottom: 20 }}>
             <span style={{ fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.85rem', letterSpacing: '0.05em' }}>
               Scenario {currentScenarioIdx + 1} of 3
@@ -390,7 +443,8 @@ export default function MindCheck() {
 
       {/* ============ PHASE: INSIGHT ============ */}
       {phase === 'insight' && selectedChoice && (
-        <div className="card glass-card fade-in" style={{ padding: '40px 30px' }}>
+        <div className="card glass-card fade-in" style={{ padding: '40px 30px', position: 'relative' }}>
+          <CloseBtn />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
             <Brain size={24} color="var(--primary-600)" />
             <span style={{ fontWeight: 700, fontSize: '1.2rem', color: 'var(--text-primary)' }}>AI Insight</span>
