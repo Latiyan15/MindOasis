@@ -1,12 +1,39 @@
-import { useState, useEffect } from 'react';
-import { Sparkles, Save, Clock, PenTool, Type, Image, AlertCircle, Brain } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Sparkles, Save, Clock, PenTool, Type, Image, AlertCircle, Brain, Bold, Italic, Trophy } from 'lucide-react';
 import { saveJournal, getJournals } from '../services/storage';
-import { analyzeJournal } from '../services/gemini';
+import { analyzeJournal, scoreDrawing, enhanceDrawing, generateImagePro } from '../services/gemini';
 import { useToast } from '../components/Toast';
 import DrawingCanvas from '../components/DrawingCanvas';
 import MoodAvatar from '../components/MoodAvatar';
 import JournalBackground from '../components/JournalBackground';
 import { useUser } from '../context/UserContext';
+
+const MOOD_TASKS = {
+  Stressed: {
+    write: "Write about one small thing that went right today.",
+    draw: "Draw a 'Calm Cloud' using soft, rounding shapes."
+  },
+  Anxious: {
+    write: "Focus on your breath. List 5 things that make you feel safe.",
+    draw: "Draw a 'Shield of Peace' with your favorite protective colors."
+  },
+  Sad: {
+    write: "It's okay to feel this way. What would you say to a friend feeling the same?",
+    draw: "Draw a 'Sun behind the Rain' – even if it's small."
+  },
+  Confused: {
+    write: "List the options in front of you without judging them.",
+    draw: "Draw a 'Path through the Maze' with a clear bright exit."
+  },
+  Bored: {
+    write: "What's a hobby you've always wanted to try? Write the first step.",
+    draw: "Draw a 'Wonder Creature' combining three random animals."
+  },
+  Neutral: {
+    write: "What are you grateful for in this quiet moment?",
+    draw: "Draw a 'Landscape of Balance' – simple and steady."
+  }
+};
 
 const MOOD_CHIPS = [
   { id: 'Stressed', label: 'Stressed', color: 'var(--rose-500)' },
@@ -20,6 +47,13 @@ const MOOD_CHIPS = [
 export default function Journal() {
   const { user } = useUser();
   const [text, setText] = useState('');
+  
+  // Text formatting state
+  const [isBold, setIsBold] = useState(false);
+  const [isItalic, setIsItalic] = useState(false);
+  const [textColor, setTextColor] = useState('#535850'); // Default text color
+  const [fontFamily, setFontFamily] = useState('Inter, sans-serif');
+
   const [selectedMood, setSelectedMood] = useState(null);
   const [aiEnabled, setAiEnabled] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
@@ -29,6 +63,14 @@ export default function Journal() {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [activeTab, setActiveTab] = useState('write');
   const [savedDrawing, setSavedDrawing] = useState(null);
+  const canvasRef = useRef(null);
+  const [drawingAnalysis, setDrawingAnalysis] = useState(null);
+  const [scoring, setScoring] = useState(false);
+  
+  // Enhancement states
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [enhancedResult, setEnhancedResult] = useState(null);
+
   const addToast = useToast();
 
   useEffect(() => {
@@ -55,14 +97,17 @@ export default function Journal() {
       setAnalyzing(false);
     }
 
-    const entryText = savedDrawing ? `${text}\n\n[🎨 Drawing attached]` : text;
-    saveJournal(entryText, aiEnabled, result);
+    const images = savedDrawing ? { original: savedDrawing, enhanced: null } : null;
+    const entryText = savedDrawing ? `${text}\n\n[🎨 Original Sketch appended]` : text;
+    saveJournal(entryText, aiEnabled, result, images);
     setJournals(getJournals());
     addToast('✨ Entry saved — your thoughts are safe here.');
 
     if (!aiEnabled) {
       setText('');
       setSavedDrawing(null);
+      setDrawingAnalysis(null);
+      setEnhancedResult(null);
       setSelectedMood(null);
     }
   };
@@ -72,21 +117,127 @@ export default function Journal() {
     setAnalysis(null);
     setSelectedEntry(null);
     setSavedDrawing(null);
+    setDrawingAnalysis(null);
+    setEnhancedResult(null);
     setSelectedMood(null);
     setError(null);
   };
 
   const handleSaveDrawing = (dataUrl) => {
     setSavedDrawing(dataUrl);
-    addToast('Drawing captured! Save your entry to keep it.');
-    setActiveTab('write');
+    setDrawingAnalysis(null);
+    setEnhancedResult(null);
+    addToast('Drawing captured! Save your entry or enhance it.');
+    // setActiveTab('write'); // Don't switch tab automatically to allow scoring/enhancing
+  };
+
+  const handleScoreDrawing = async () => {
+    if (!savedDrawing) return;
+    setScoring(true);
+    try {
+      const taskDesc = selectedMood ? MOOD_TASKS[selectedMood]?.draw : '';
+      const result = await scoreDrawing(savedDrawing, selectedMood, taskDesc);
+      setDrawingAnalysis(result);
+      addToast('✨ Gemini has analyzed your patterns!');
+    } catch (err) {
+      addToast('Scoring failed, but your art is still beautiful!');
+    }
+    setScoring(false);
+  };
+
+  const handleEnhanceDrawing = async (imageUrl = null) => {
+    // If no imageUrl passed, try to get it from the canvas ref
+    let finalUrl = imageUrl || savedDrawing;
+    if (!finalUrl && canvasRef.current) {
+      finalUrl = canvasRef.current.getCanvasDataUrl();
+      setSavedDrawing(finalUrl); // Sync it
+    }
+    
+    if (!finalUrl) {
+      addToast('Please draw something first!');
+      return;
+    }
+
+    setIsEnhancing(true);
+    setEnhancedResult(null);
+    setDrawingAnalysis(null);
+    addToast('Gemini is analyzing your sketch...');
+    
+    try {
+      const result = await enhanceDrawing(finalUrl);
+      
+      const safePrompt = result.image_prompt.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+      const encodedPrompt = encodeURIComponent(safePrompt) || 'beautiful-art';
+      const seed = Math.floor(Math.random() * 1000000);
+      
+      addToast('🎨 Using Node.js Proxy for reliable generation...');
+      
+      // Step 1: Proxy through our local backend to bypass browser blocks
+      let enhancedImageUrl = `http://localhost:5000/api/ai/image?prompt=${encodedPrompt}&seed=${seed}&width=1024&height=1024&model=flux`;
+      
+      setEnhancedResult({
+        originalImage: finalUrl,
+        enhancedImage: enhancedImageUrl,
+        score: result.score,
+        visualEvaluation: result.visual_evaluation,
+        emotionalInterpretation: result.emotional_interpretation
+      });
+      addToast('✨ Your illustration is ready!');
+    } catch (err) {
+      addToast('Failed to enhance drawing. Please try again.');
+      console.error('Enhancement Error:', err);
+    }
+    setIsEnhancing(false);
+  };
+
+  const handleSaveEnhancedEntry = (type) => {
+    if (!enhancedResult) return;
+    
+    // Convert to journal text entry, mentioning the AI enhancement
+    const baseText = text ? `${text}\n\n` : '';
+    let entryText = '';
+    
+    const analysisText = `Score: ${enhancedResult.score}\nVisual Evaluation: ${enhancedResult.visualEvaluation}\nEmotional Interpretation: ${enhancedResult.emotionalInterpretation}`;
+    
+    if (type === 'enhanced') {
+      entryText = `${baseText}[✨ AI Enhanced Artwork appended]\n\n${analysisText}`;
+    } else if (type === 'both') {
+      entryText = `${baseText}[🎨 Original Sketch appended]\n[✨ AI Enhanced Artwork appended]\n\n${analysisText}`;
+    }
+    
+    const images = {
+      original: type === 'both' ? enhancedResult.originalImage : null,
+      enhanced: enhancedResult.enhancedImage
+    };
+    
+    saveJournal(entryText, aiEnabled, null, images);
+    setJournals(getJournals());
+    addToast('✨ Enhanced entry saved successfully!');
+    handleNewEntry();
   };
 
   const viewEntry = (entry) => {
     setSelectedEntry(entry);
     setText(entry.text);
-    setSavedDrawing(null);
+    setDrawingAnalysis(null);
     setError(null);
+    
+    if (entry.images && entry.images.enhanced) {
+      setEnhancedResult({
+        originalImage: entry.images.original, 
+        enhancedImage: entry.images.enhanced,
+        score: "Saved Entry", 
+        visualEvaluation: "See journal text above.",
+        emotionalInterpretation: "See journal text above."
+      });
+      setSavedDrawing(entry.images.original);
+    } else if (entry.images && entry.images.original) {
+      setSavedDrawing(entry.images.original);
+      setEnhancedResult(null);
+    } else {
+      setSavedDrawing(null);
+      setEnhancedResult(null);
+    }
     if (entry.emotion_tone) {
       setAnalysis({
         emotion_tone: entry.emotion_tone,
@@ -177,10 +328,81 @@ export default function Journal() {
               </div>
 
               {/* Journal Canvas */}
-              <div className="premium-glass-card journal-canvas-card">
-                <textarea
+              <div className="premium-glass-card journal-canvas-card" style={{ padding: 0, overflow: 'hidden' }}>
+                
+                {/* Formatting Toolbar */}
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, padding: '12px 16px', background: 'rgba(255,255,255,0.4)', borderBottom: '1px solid rgba(148,163,184,0.1)' }}>
+                  
+                  {/* Font Family Picker */}
+                  <select 
+                    value={fontFamily} 
+                    onChange={e => setFontFamily(e.target.value)}
+                    style={{ 
+                      padding: '6px 10px', 
+                      borderRadius: 8, 
+                      border: '1px solid rgba(148,163,184,0.3)', 
+                      background: 'rgba(255,255,255,0.6)',
+                      fontSize: '0.85rem',
+                      fontWeight: 500,
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer',
+                      outline: 'none',
+                      fontFamily: fontFamily
+                    }}
+                  >
+                    <option value="Inter, sans-serif" style={{ fontFamily: 'Inter, sans-serif' }}>Inter (Default)</option>
+                    <option value="Outfit, sans-serif" style={{ fontFamily: 'Outfit, sans-serif' }}>Outfit (Modern)</option>
+                    <option value="Georgia, serif" style={{ fontFamily: 'Georgia, serif' }}>Georgia (Serif)</option>
+                    <option value="'Comic Sans MS', cursive, sans-serif" style={{ fontFamily: "'Comic Sans MS', cursive, sans-serif" }}>Comic Sans (Playful)</option>
+                    <option value="'Courier New', Courier, monospace" style={{ fontFamily: "'Courier New', Courier, monospace" }}>Courier (Monospace)</option>
+                    <option value="Impact, fantasy" style={{ fontFamily: "Impact, fantasy" }}>Impact (Bold)</option>
+                  </select>
+
+                  <div style={{ width: 1, height: 20, background: 'rgba(148,163,184,0.2)' }} />
+                  <button 
+                    onClick={() => setIsBold(!isBold)}
+                    style={{ background: isBold ? 'rgba(174,203,159,0.3)' : 'transparent', border: 'none', padding: 6, borderRadius: 6, color: isBold ? '#5c7f4a' : '#8fa382', cursor: 'pointer', display: 'flex' }}
+                    title="Bold"
+                  >
+                    <Bold size={16} />
+                  </button>
+                  <button 
+                    onClick={() => setIsItalic(!isItalic)}
+                    style={{ background: isItalic ? 'rgba(174,203,159,0.3)' : 'transparent', border: 'none', padding: 6, borderRadius: 6, color: isItalic ? '#5c7f4a' : '#8fa382', cursor: 'pointer', display: 'flex' }}
+                    title="Italic"
+                  >
+                    <Italic size={16} />
+                  </button>
+                  
+                  <div style={{ width: 1, height: 20, background: 'rgba(148,163,184,0.2)', margin: '0 4px' }} />
+                  
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {['#535850', '#c06058', '#4b6bfb', '#8b5cf6', '#059669'].map(color => (
+                      <button
+                        key={color}
+                        onClick={() => setTextColor(color)}
+                        style={{
+                          width: 20, height: 20, borderRadius: '50%', background: color, border: 'none', cursor: 'pointer',
+                          boxShadow: textColor === color ? `0 0 0 2px white, 0 0 0 4px ${color}` : 'none',
+                          transform: textColor === color ? 'scale(1.1)' : 'scale(1)'
+                        }}
+                        title="Text Color"
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                  <textarea
                   className="journal-textarea"
-                  placeholder="Write about your day, your thoughts, or what's on your mind..."
+                  style={{ 
+                    padding: '16px', 
+                    fontWeight: isBold ? 700 : 500, 
+                    fontStyle: isItalic ? 'italic' : 'normal',
+                    color: textColor,
+                    fontFamily: fontFamily,
+                    transition: 'all 0.2s ease'
+                  }}
+                  placeholder={selectedMood ? `Task: ${MOOD_TASKS[selectedMood]?.write}` : "Write about your day, your thoughts, or what's on your mind..."}
                   value={text}
                   onChange={(e) => { setText(e.target.value); setAnalysis(null); setSelectedEntry(null); setError(null); }}
                 />
@@ -188,9 +410,22 @@ export default function Journal() {
                 {savedDrawing && (
                   <div style={{ marginTop: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: '0.7rem', fontWeight: 600, color: '#8b5cf6' }}>
-                      <Image size={12} /> Drawing attached
+                      <Image size={12} /> Original Sketch attached
                     </div>
-                    <img src={savedDrawing} alt="Drawing" style={{ width: '100%', maxHeight: 120, objectFit: 'contain', borderRadius: 12, border: '1px solid rgba(148,163,184,0.15)' }} />
+                    <img src={savedDrawing} alt="Drawing" style={{ width: '100%', maxHeight: 120, objectFit: 'contain', borderRadius: 12, border: '1px solid rgba(148,163,184,0.15)', background: 'white' }} />
+                  </div>
+                )}
+                
+                {enhancedResult && enhancedResult.enhancedImage && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: '0.7rem', fontWeight: 600, color: 'var(--primary-600)' }}>
+                      <Sparkles size={12} /> AI Enhanced Artwork attached
+                    </div>
+                    <img 
+                      src={enhancedResult.enhancedImage} 
+                      alt="Enhanced Artwork" 
+                      style={{ width: '100%', maxHeight: 250, objectFit: 'cover', borderRadius: 12, border: '2px solid var(--primary-200)' }} 
+                    />
                   </div>
                 )}
 
@@ -210,11 +445,188 @@ export default function Journal() {
 
           {activeTab === 'draw' && (
             <div className="premium-glass-card fade-in">
-              <div style={{ marginBottom: 10 }}>
-                <h3 style={{ fontSize: '0.9rem', marginBottom: 2 }}>🎨 Creative Space</h3>
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Draw how your mind feels today.</p>
+              <div style={{ marginBottom: 15, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <h3 style={{ fontSize: '0.9rem', marginBottom: 2 }}>🎨 Creative Space</h3>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--primary-600)', fontWeight: 600 }}>
+                    {selectedMood ? `Mood Task: ${MOOD_TASKS[selectedMood]?.draw}` : "Draw how your mind feels today."}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {!enhancedResult && (
+                    <>
+                      <button 
+                        className="premium-back-btn" 
+                        style={{ padding: '8px 16px', background: 'white', border: '1px solid var(--primary-200)' }}
+                        onClick={handleScoreDrawing}
+                        disabled={scoring || isEnhancing}
+                      >
+                        {scoring ? 'Scoring...' : 'Score My Drawing'}
+                      </button>
+                      <button 
+                        className="premium-save-btn" 
+                        style={{ padding: '8px 16px', fontWeight: 700, background: 'var(--primary-600)', boxShadow: '0 4px 12px rgba(92,127,74,0.3)' }}
+                        onClick={() => handleEnhanceDrawing()}
+                        disabled={isEnhancing || scoring}
+                      >
+                        <Sparkles size={16} style={{ marginRight: 6 }} /> {isEnhancing ? 'Enhancing...' : 'Enhance My Drawing'}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
-              <DrawingCanvas onSave={handleSaveDrawing} />
+              
+              {/* Show original canvas UNLESS we have an enhanced result to show side-by-side */}
+              {!enhancedResult && !isEnhancing && (
+                <DrawingCanvas ref={canvasRef} onSave={handleSaveDrawing} />
+              )}
+              
+              {/* Enhancing State Loader */}
+              {isEnhancing && (
+                <div style={{ padding: '60px 0', textAlign: 'center', background: 'rgba(255,255,255,0.4)', borderRadius: 16 }}>
+                  <div className="premium-icon-circle" style={{ margin: '0 auto 16px', animation: 'spin-slow 3s linear infinite' }}>
+                    <Sparkles size={24} color="var(--primary-500)" />
+                  </div>
+                  <h3 style={{ fontSize: '1rem', color: 'var(--primary-700)', marginBottom: 8 }}>Gemini is reimagining your sketch...</h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Adding soft colors, dreamy aesthetic, and beautiful details.</p>
+                </div>
+              )}
+
+              {/* Enhanced Side-by-Side View */}
+              {enhancedResult && (
+                <div className="fade-in">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+                    <h3 style={{ fontSize: '1rem', color: 'var(--primary-700)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Brain size={18} /> AI Analysis & Enhancement
+                    </h3>
+                  </div>
+                  <div style={{ 
+                    display: 'flex', flexDirection: window.innerWidth < 600 ? 'column' : 'row', 
+                    gap: 16, marginBottom: 20 
+                  }}>
+                    {/* Left: Original */}
+                    <div style={{ flex: 1, background: 'white', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(148,163,184,0.2)' }}>
+                      <div style={{ padding: '8px 12px', fontSize: '0.75rem', fontWeight: 600, background: 'rgba(241,245,249,0.5)', borderBottom: '1px solid rgba(148,163,184,0.1)' }}>Original Drawing</div>
+                      <img src={enhancedResult.originalImage} alt="Original Sketch" style={{ width: '100%', height: 250, objectFit: 'contain', background: 'white' }} />
+                    </div>
+                    
+                    {/* Right: AI Enhanced */}
+                    <div style={{ flex: 1, background: 'white', borderRadius: 12, overflow: 'hidden', border: '2px solid var(--primary-200)', boxShadow: '0 8px 20px rgba(92,127,74,0.1)' }}>
+                      <div style={{ padding: '8px 12px', fontSize: '0.75rem', fontWeight: 600, background: 'var(--primary-50)', color: 'var(--primary-700)', borderBottom: '1px solid var(--primary-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Enhanced Version</span>
+                        <div className="premium-badge" style={{ background: 'white', padding: '2px 8px', fontSize: '0.6rem' }}>Score: {enhancedResult.score}</div>
+                      </div>
+                      <div style={{ position: 'relative' }}>
+                        <img 
+                          src={enhancedResult.enhancedImage} 
+                          alt="Enhanced Artwork" 
+                          crossOrigin="anonymous"
+                          referrerPolicy="no-referrer"
+                          style={{ width: '100%', height: 250, objectFit: 'cover', display: 'block' }} 
+                          onError={(e) => {
+                            const currentSrc = e.target.src;
+                            if (currentSrc.includes('pollinations.ai/p')) {
+                              // Try official image domain if first fails
+                              console.warn('Pollinations mirror 1 failing, trying record mirror...');
+                              e.target.src = currentSrc.replace('pollinations.ai/p', 'image.pollinations.ai/prompt');
+                            } else if (currentSrc.includes('image.pollinations.ai')) {
+                              // Deep fallback to a totally different free generator
+                              console.warn('All Pollinations mirrors failing, trying backup generator...');
+                              const prompt = currentSrc.split('/').pop().split('?')[0];
+                              e.target.src = `https://api.airforce/v1/image?prompt=${prompt}&model=flux&width=1024&height=1024`;
+                            } else {
+                              // Ultimate SVG placeholder
+                              console.error('All AI mirrors failed.');
+                              e.target.src = `data:image/svg+xml;base64,${btoa(`
+                                <svg width="800" height="800" viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <rect width="800" height="800" fill="#f8fafc"/>
+                                  <circle cx="400" cy="400" r="100" fill="#aecc9f" opacity="0.2">
+                                    <animate attributeName="r" values="80;120;80" dur="3s" repeatCount="indefinite" />
+                                  </circle>
+                                  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#5c7f4a" font-family="sans-serif" font-size="24">Art is taking longer than usual...</text>
+                                  <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="#94a3b8" font-family="sans-serif" font-size="16">The AI services are heavily loaded. Click Reload to try again.</text>
+                                </svg>
+                              `)}`;
+                            }
+                          }}
+                        />
+                        <button 
+                          onClick={() => handleEnhanceDrawing(enhancedResult.originalImage)}
+                          style={{ 
+                            position: 'absolute', bottom: 10, right: 10, 
+                            padding: '4px 8px', fontSize: '0.6rem', background: 'rgba(0,0,0,0.5)', 
+                            color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' 
+                          }}
+                        >
+                          Reload AI Art
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* AI Evaluation Data */}
+                  <div className="premium-ai-reflection" style={{ marginBottom: 20 }}>
+                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Visual Evaluation</div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{enhancedResult.visualEvaluation}</p>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Emotional Interpretation</div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{enhancedResult.emotionalInterpretation}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                    <button className="premium-save-btn" onClick={() => handleSaveEnhancedEntry('enhanced')}>
+                      Save Enhanced to Journal
+                    </button>
+                    <button className="premium-back-btn" onClick={() => handleSaveEnhancedEntry('both')} style={{ background: 'white', color: 'var(--text-primary)' }}>
+                      Save Both
+                    </button>
+                    <div style={{ flex: 1 }} />
+                    <button className="premium-back-btn" onClick={() => handleEnhanceDrawing(enhancedResult.originalImage)} style={{ background: 'transparent' }}>
+                      <Sparkles size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Regenerate
+                    </button>
+                    <button className="premium-back-btn" onClick={() => setEnhancedResult(null)} style={{ background: 'transparent' }}>
+                      Back to Canvas
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Drawing Analysis Result (Score & Patterns) */}
+              {drawingAnalysis && !enhancedResult && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="fade-in premium-ai-reflection" style={{ marginTop: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Brain size={16} color="var(--primary-600)" />
+                      <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--primary-800)' }}>Pattern Intelligence</span>
+                    </div>
+                    <div className="premium-badge" style={{ background: 'var(--primary-600)', color: 'white', padding: '4px 10px' }}>Score: {drawingAnalysis.score}/10</div>
+                  </div>
+                  
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: 12, fontStyle: 'italic', lineHeight: 1.5 }}>"{drawingAnalysis.remarks}"</p>
+                  
+                  <div style={{ padding: '12px', background: 'rgba(255,255,255,0.6)', borderRadius: 12, border: '1px solid var(--primary-100)' }}>
+                     <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary-700)', textTransform: 'uppercase', marginBottom: 4 }}>Psychological Patterns</div>
+                     <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{drawingAnalysis.pattern_analysis}</p>
+                     {drawingAnalysis.mood_alignment && (
+                       <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(148,163,184,0.1)', fontSize: '0.75rem' }}>
+                         <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Mood Alignment: </span>
+                         <span style={{ color: 'var(--primary-600)' }}>{drawingAnalysis.mood_alignment}</span>
+                       </div>
+                     )}
+                  </div>
+                  
+                  <div style={{ marginTop: 15, display: 'flex', gap: 10 }}>
+                     <button className="premium-back-btn" style={{ padding: '8px 16px', fontSize: '0.8rem', background: 'white' }} onClick={() => setDrawingAnalysis(null)}>Close Analysis</button>
+                     <button className="premium-save-btn" style={{ padding: '8px 16px', fontSize: '0.8rem' }} onClick={() => handleSave()}>Save Entry with Score</button>
+                  </div>
+                </motion.div>
+              )}
             </div>
           )}
 
@@ -295,8 +707,8 @@ export default function Journal() {
                       )}
                     </div>
                     <div className="journal-entry-preview">
-                      {entry.text.includes('[🎨 Drawing') ? '🎨 ' : ''}
-                      {entry.text.replace('\n\n[🎨 Drawing attached]', '').slice(0, 120)}
+                      {entry.text.includes('[🎨 Original Sketch') || entry.text.includes('[✨ AI Enhanced') ? '🎨 ' : ''}
+                      {entry.text.replace('\n\n[🎨 Original Sketch appended]', '').replace('\n[✨ AI Enhanced Artwork appended]', '').slice(0, 120)}
                       {entry.text.length > 120 ? '...' : ''}
                     </div>
                   </button>

@@ -4,6 +4,7 @@ const KEYS = {
   JOURNALS: 'mindoasis_journals',
   BURNOUT: 'mindoasis_burnout',
   SCENARIOS: 'mindoasis_scenarios',
+  MINDCHECK: 'mindoasis_mindcheck',
 };
 
 function generateId() {
@@ -22,6 +23,43 @@ function save(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
+// ===== Background Sync to Node.js / MongoDB =====
+const API_BASE = 'http://localhost:5000/api';
+
+async function syncInsert(endpoint, data) {
+  try {
+    await fetch(`${API_BASE}/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  } catch (err) {
+    console.warn(`[Sync] Failed to sync ${endpoint} to MongoDB (Offline?)`, err.message);
+  }
+}
+
+export async function hydrateFromServer() {
+  try {
+    const urls = ['moods', 'journals', 'mindchecks'];
+    for (const url of urls) {
+      const res = await fetch(`${API_BASE}/${url}`);
+      if (res.ok) {
+        const serverData = await res.json();
+        if (serverData && serverData.length > 0) {
+          // Merge server data with local data (simple overwrite for this prototype, using server as truth)
+          let key;
+          if (url === 'moods') key = KEYS.MOODS;
+          else if (url === 'journals') key = KEYS.JOURNALS;
+          else if (url === 'mindchecks') key = KEYS.MINDCHECK;
+          save(key, serverData);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Sync] Could not hydrate from server (Offline?)', err.message);
+  }
+}
+
 // ===== Mood Logs =====
 export function saveMood(mood) {
   const moods = getAll(KEYS.MOODS);
@@ -32,6 +70,7 @@ export function saveMood(mood) {
   };
   moods.unshift(entry);
   save(KEYS.MOODS, moods);
+  syncInsert('moods', entry); // Background sync
   return entry;
 }
 
@@ -69,7 +108,7 @@ export function getMoodStreak() {
 }
 
 // ===== Journal Entries =====
-export function saveJournal(text, aiAnalysisAllowed = false, analysis = null) {
+export function saveJournal(text, aiAnalysisAllowed = false, analysis = null, images = null) {
   const journals = getAll(KEYS.JOURNALS);
   const entry = {
     id: generateId(),
@@ -78,10 +117,12 @@ export function saveJournal(text, aiAnalysisAllowed = false, analysis = null) {
     emotion_tone: analysis?.emotion_tone || null,
     stress_trigger: analysis?.stress_trigger || null,
     sentiment_score: analysis?.sentiment_score || null,
+    images: images || null,
     timestamp: new Date().toISOString(),
   };
   journals.unshift(entry);
   save(KEYS.JOURNALS, journals);
+  syncInsert('journals', entry); // Background sync
   return entry;
 }
 
@@ -131,20 +172,57 @@ export function getScenarioInteractions() {
   return getAll(KEYS.SCENARIOS);
 }
 
+// ===== Mind Check Results =====
+export function saveMindCheckResult(result) {
+  const results = getAll(KEYS.MINDCHECK);
+  const entry = {
+    id: generateId(),
+    burnout_indicator: result.burnout_indicator,
+    burnout_insight: result.burnout_insight,
+    answers: result.answers || {},
+    questions: result.questions || [],
+    history: result.history || [],
+    timestamp: new Date().toISOString(),
+  };
+  results.unshift(entry);
+  save(KEYS.MINDCHECK, results);
+  syncInsert('mindchecks', entry); // Background sync
+  return entry;
+}
+
+export function getMindCheckResults() {
+  return getAll(KEYS.MINDCHECK);
+}
+
+export function getRecentMindChecks(days = 30) {
+  const results = getAll(KEYS.MINDCHECK);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  return results.filter(r => new Date(r.timestamp) >= cutoff);
+}
+
 // ===== Aggregate Data =====
 export function getWeeklyData() {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
+  const filterRecent = (arr) => arr.filter(item => new Date(item.timestamp) >= cutoff);
+  
   return {
     moods: getRecentMoods(7),
     journals: getRecentJournals(7),
-    burnout: getBurnoutResults().filter(b => {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 7);
-      return new Date(b.timestamp) >= cutoff;
-    }),
-    scenarios: getScenarioInteractions().filter(s => {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 7);
-      return new Date(s.timestamp) >= cutoff;
-    }),
+    burnout: filterRecent(getBurnoutResults()),
+    scenarios: filterRecent(getScenarioInteractions()),
+    mindChecks: filterRecent(getMindCheckResults()),
   };
 }
+
+export function getAllTimeData() {
+  return {
+    moods: getMoodLogs(),
+    journals: getJournals(),
+    burnout: getBurnoutResults(),
+    scenarios: getScenarioInteractions(),
+    mindChecks: getMindCheckResults(),
+  };
+}
+

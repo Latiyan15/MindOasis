@@ -20,16 +20,35 @@ const STRESS_TRIGGERS = {
   self_esteem: ['failure', 'worthless', 'stupid', 'ugly', 'inadequate', 'comparison', 'imposter', 'insecure', 'doubt'],
 };
 
+// Occupation-to-trigger boost mapping
+const OCCUPATION_BOOSTS = {
+  student: { academic: 1.5, self_esteem: 1.3 },
+  professional: { work: 1.5, financial: 1.2 },
+  healthcare: { health: 1.4, stress: 1.3 },
+  artist: { self_esteem: 1.4, confusion: 1.2 },
+  homemaker: { social: 1.3, health: 1.2 },
+  other: {},
+};
+
+// Environment-based social risk modifiers
+const ENVIRONMENT_MODIFIERS = {
+  alone: { social: 1.4, sadness: 1.3 },
+  family: { social: 1.1 },
+  roommates: { social: 1.2, anger: 1.1 },
+};
+
 function countKeywords(text, keywords) {
   const lower = text.toLowerCase();
   return keywords.filter(k => lower.includes(k)).length;
 }
 
-function findTopCategory(text, categories) {
+function findTopCategory(text, categories, boosts = {}) {
   let top = null;
   let maxScore = 0;
   for (const [cat, keywords] of Object.entries(categories)) {
-    const score = countKeywords(text, keywords);
+    let score = countKeywords(text, keywords);
+    // Apply occupation/environment boosts
+    if (boosts[cat]) score *= boosts[cat];
     if (score > maxScore) {
       maxScore = score;
       top = cat;
@@ -55,11 +74,15 @@ function calculateSentiment(text) {
 }
 
 // ===== Journal Analysis =====
-export function analyzeJournal(text) {
+export function analyzeJournal(text, userProfile = {}) {
   return new Promise((resolve) => {
     setTimeout(() => {
-      const emotion = findTopCategory(text, EMOTION_KEYWORDS);
-      const trigger = findTopCategory(text, STRESS_TRIGGERS);
+      // Build boosts from user profile
+      const emotionBoosts = { ...(ENVIRONMENT_MODIFIERS[userProfile.environment] || {}) };
+      const triggerBoosts = { ...(OCCUPATION_BOOSTS[userProfile.occupation] || {}) };
+
+      const emotion = findTopCategory(text, EMOTION_KEYWORDS, emotionBoosts);
+      const trigger = findTopCategory(text, STRESS_TRIGGERS, triggerBoosts);
       const sentiment = calculateSentiment(text);
 
       const emotionMap = {
@@ -91,7 +114,7 @@ export function analyzeJournal(text) {
 }
 
 // ===== Burnout Assessment =====
-export function assessBurnout(answers, journalEntries = []) {
+export function assessBurnout(answers, journalEntries = [], userProfile = {}) {
   return new Promise((resolve) => {
     setTimeout(() => {
       // Score from questionnaire
@@ -109,11 +132,24 @@ export function assessBurnout(answers, journalEntries = []) {
         score += (stressEntries / journalEntries.length) * 15;
       }
 
+      // Environment-based risk modifier
+      if (userProfile.environment === 'alone') {
+        score += 5; // Living alone increases isolation risk
+      }
+
+      // Occupation-based risk modifier
+      if (userProfile.occupation === 'healthcare') {
+        score += 4; // Healthcare workers face higher burnout
+      } else if (userProfile.occupation === 'student') {
+        score += 2; // Academic pressure factor
+      }
+
       let risk_level, indicators = [], recommendations = [];
 
       if (score >= 45) {
         risk_level = 'High';
         indicators = ['Elevated stress levels', 'Potential sleep deficit', 'High workload pressure', 'Emotional fatigue detected'];
+        if (userProfile.environment === 'alone') indicators.push('Social isolation risk');
         recommendations = [
           'Consider speaking with a counselor or mental health professional',
           'Prioritize 7-8 hours of sleep each night',
@@ -121,6 +157,9 @@ export function assessBurnout(answers, journalEntries = []) {
           'Practice deep breathing exercises daily',
           'Take regular 10-15 minute breaks throughout the day',
         ];
+        if (userProfile.environment === 'alone') {
+          recommendations.push('Try to connect with at least one person daily, even briefly');
+        }
       } else if (score >= 25) {
         risk_level = 'Moderate';
         indicators = ['Moderate stress patterns', 'Some sleep irregularity', 'Building pressure from responsibilities'];
@@ -140,6 +179,15 @@ export function assessBurnout(answers, journalEntries = []) {
           'Use journaling to track emotional patterns',
           'Keep up regular physical activity',
         ];
+      }
+
+      // Add occupation-specific recommendations
+      if (userProfile.occupation === 'student') {
+        recommendations.push('Use the Pomodoro technique for study sessions');
+      } else if (userProfile.occupation === 'professional') {
+        recommendations.push('Set clear work-life boundaries each day');
+      } else if (userProfile.occupation === 'healthcare') {
+        recommendations.push('Practice compassion fatigue awareness and self-care');
       }
 
       resolve({ risk_level, indicators, recommendations, score: Math.min(100, score) });
@@ -307,7 +355,7 @@ export function simulateScenario(scenarioId, choiceId) {
 }
 
 // ===== Weekly Report =====
-export function generateWeeklyReport(data) {
+export function generateWeeklyReport(data, userProfile = {}) {
   return new Promise((resolve) => {
     setTimeout(() => {
       const { moods, journals, burnout, scenarios } = data;
@@ -337,7 +385,7 @@ export function generateWeeklyReport(data) {
       if (scenarios.length > 0) positiveBehaviors.push('Engaged with scenario exercises');
       if (burnout.length > 0) positiveBehaviors.push('Proactive burnout monitoring');
 
-      // Generate recommendations based on data
+      // Generate recommendations based on data + user profile
       const recommendations = [];
       if (dominantMood === 'Stressed' || dominantMood === 'Anxious') {
         recommendations.push('Try 5-minute breathing exercises before starting your day');
@@ -353,6 +401,29 @@ export function generateWeeklyReport(data) {
       if (moods.length < 5) {
         recommendations.push('Log your mood daily for better emotional awareness');
       }
+
+      // Personalized recommendations based on occupation
+      const occRecs = {
+        student: 'Break study sessions into 25-minute focused blocks with 5-minute breaks',
+        professional: 'Set a hard stop time for work each day to protect personal time',
+        healthcare: 'Practice a 2-minute grounding exercise between patient interactions',
+        artist: 'Use your creative outlet as an emotional processing tool this week',
+        homemaker: 'Carve out 15 minutes of personal time daily — you deserve it',
+      };
+      if (occRecs[userProfile.occupation]) {
+        recommendations.push(occRecs[userProfile.occupation]);
+      }
+
+      // Personalized recommendations based on environment
+      const envRecs = {
+        alone: 'Schedule at least one social interaction this week, even a short call',
+        family: 'Communicate your need for personal quiet time to your family',
+        roommates: 'Find a personal space or quiet corner for daily reflection',
+      };
+      if (envRecs[userProfile.environment]) {
+        recommendations.push(envRecs[userProfile.environment]);
+      }
+
       recommendations.push('Celebrate your progress — seeking self-awareness is a strength');
 
       // Calculate overall wellness score

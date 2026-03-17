@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { 
   Pen, Eraser, Trash2, Download, Undo2, 
-  Circle, Square, Sticker, Palette, Minus, Plus
+  Sticker, Palette, Minus, Plus
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { getAvatarSVGString } from '../utils/svgToImage';
@@ -24,7 +24,7 @@ const BG_COLORS = [
   '#f3e8ff', '#e0f2fe', '#fdf2f8',
 ];
 
-export default function DrawingCanvas({ onSave }) {
+const DrawingCanvas = forwardRef(({ onSave }, ref) => {
   const { user } = useUser();
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -40,6 +40,15 @@ export default function DrawingCanvas({ onSave }) {
 
   const getCanvas = () => canvasRef.current;
   const getCtx = () => canvasRef.current?.getContext('2d');
+
+  // Expose the data URL to parent
+  useImperativeHandle(ref, () => ({
+    getCanvasDataUrl: () => {
+      const canvas = getCanvas();
+      return canvas ? canvas.toDataURL() : null;
+    },
+    clear: () => clear()
+  }));
 
   // Initialize canvas
   useEffect(() => {
@@ -60,12 +69,8 @@ export default function DrawingCanvas({ onSave }) {
     const canvas = getCanvas();
     const ctx = getCtx();
     if (!canvas || !ctx) return;
-    // Save current drawing
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    // We don't restore here since changing bg is a destructive action
-    // User should change bg first before drawing
   }, [bgColor]);
 
   const saveToHistory = () => {
@@ -169,11 +174,6 @@ export default function DrawingCanvas({ onSave }) {
     link.download = `mindoasis-drawing-${Date.now()}.png`;
     link.href = canvas.toDataURL();
     link.click();
-  };
-
-  const getCanvasDataUrl = () => {
-    const canvas = getCanvas();
-    return canvas ? canvas.toDataURL() : null;
   };
 
   return (
@@ -310,7 +310,7 @@ export default function DrawingCanvas({ onSave }) {
       {onSave && (
         <button 
           className="btn btn-success" 
-          onClick={() => onSave(getCanvasDataUrl())}
+          onClick={() => onSave(canvasRef.current.toDataURL())}
           style={{ width: '100%', marginTop: 12 }}
         >
           <Download size={16} />
@@ -319,4 +319,6 @@ export default function DrawingCanvas({ onSave }) {
       )}
     </div>
   );
-}
+});
+
+export default DrawingCanvas;

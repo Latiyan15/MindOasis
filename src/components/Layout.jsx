@@ -1,19 +1,24 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
-import { 
-  Home, BookOpen, Flame, Gamepad2, BarChart3, Heart, Leaf
+import {
+  Home, BookOpen, Sparkles, BarChart3, User, BrainCircuit
 } from 'lucide-react';
+import { useUser } from '../context/UserContext';
 
 const navItems = [
   { path: '/', label: 'Home', icon: Home },
   { path: '/journal', label: 'Journal', icon: BookOpen },
-  { path: '/burnout', label: 'Burnout', icon: Flame }, // using Flame for burnout
-  { path: '/simulator', label: 'Simulator', icon: Gamepad2 },
+  { path: '/play', label: 'Play', icon: Sparkles, isPlayZone: true },
+  { path: '/mind-check', label: 'Mind Check', icon: BrainCircuit },
   { path: '/report', label: 'Report', icon: BarChart3 },
+  { path: '/profile', label: 'Profile', icon: User },
 ];
 
 export default function Layout({ children }) {
   const location = useLocation();
+  const { user } = useUser();
+  const today = new Date().toISOString().split('T')[0];
+  const hasStreakReward = user && user.lastPlayedDate !== today;
 
   return (
     <div className="mobile-app">
@@ -24,17 +29,23 @@ export default function Layout({ children }) {
 
       {/* Bottom Tab Bar */}
       <nav className="bottom-nav clone-nav">
-        {navItems.map(item => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}
-            end={item.path === '/'}
-          >
-            <item.icon size={22} />
-            <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>{item.label}</span>
-          </NavLink>
-        ))}
+        {navItems.map(item => {
+          const isActive = location.pathname.startsWith(item.path) && (item.path !== '/' || location.pathname === '/');
+          const showGlow = item.isPlayZone && hasStreakReward;
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={`bottom-nav-item ${isActive ? 'active' : ''} ${showGlow ? 'glow-animation' : ''}`}
+            >
+              <div style={{ position: 'relative' }}>
+                <item.icon size={22} className={showGlow ? 'text-violet-500' : ''} />
+                {showGlow && <span className="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full border border-white"></span>}
+              </div>
+              <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>{item.label}</span>
+            </NavLink>
+          );
+        })}
       </nav>
     </div>
   );
