@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Sparkles, ArrowRight, Brain, RotateCcw, Activity, Briefcase, Home, ChevronRight, Stethoscope, Shield } from 'lucide-react';
+import { Sparkles, ArrowRight, Brain, RotateCcw, Activity, Briefcase, Home, ChevronRight, Stethoscope, Shield, X } from 'lucide-react';
 import { generateAssessmentQuestions, generateMindCheckScenario } from '../services/gemini';
 import { saveMindCheckResult } from '../services/storage';
 import { useToast } from '../components/Toast';
