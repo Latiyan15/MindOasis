@@ -311,16 +311,16 @@ function VoiceGrounding({ onBack }) {
 }
 
 // ===== 2-Minute Reset (Stressed) =====
-function PhysicalReset({ onBack }) {
+function PhysicalReset({ onBack, onComplete }) {
   const [timeLeft, setTimeLeft] = useState(120);
   const [isActive, setIsActive] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
 
   const tasks = [
-    { time: 120, text: "Stretch your shoulders and neck gently" },
-    { time: 80, text: "Breathe slowly: 4 seconds in, 4 seconds out" },
-    { time: 40, text: "Take a slow sip of water" },
-    { time: 10, text: "Almost there, feel the tension leaving..." }
+    { time: 120, text: "Gently rotate your neck and shoulders" },
+    { time: 90, text: "Breathe: 4s in, 4s hold, 4s out" },
+    { time: 60, text: "Unclench your jaw and drop your shoulders" },
+    { time: 30, text: "Final stretch: Reach for the sky, then release" }
   ];
 
   useEffect(() => {
@@ -329,15 +329,22 @@ function PhysicalReset({ onBack }) {
       timer = setInterval(() => {
         setTimeLeft(t => t - 1);
       }, 1000);
-    } else if (timeLeft === 0) {
+    } else if (timeLeft === 0 && isActive) {
       setIsFinished(true);
       setIsActive(false);
       if (onComplete) onComplete();
     }
     return () => clearInterval(timer);
-  }, [isActive, timeLeft]);
+  }, [isActive, timeLeft, onComplete]);
 
-  const currentTask = tasks.find(t => timeLeft <= t.time)?.text || "Breathe deeply";
+  // Find current task
+  const currentTaskIdx = tasks.findIndex((t, idx) => {
+    const nextTaskTime = tasks[idx + 1] ? tasks[idx + 1].time : 0;
+    return timeLeft <= t.time && timeLeft > nextTaskTime;
+  });
+  
+  const currentTask = tasks[currentTaskIdx]?.text || "Almost done...";
+  const incomingTask = tasks[currentTaskIdx + 1]?.text || "Final Phase";
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -352,7 +359,7 @@ function PhysicalReset({ onBack }) {
   };
 
   return (
-    <div className="activity-card fade-in" style={{ textAlign: 'center' }}>
+    <div className="activity-card fade-in" style={{ textAlign: 'center', minHeight: '420px', display: 'flex', flexDirection: 'column' }}>
       <div className="activity-header">
         <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><ChevronLeft size={18} /></button>
         <Clock size={20} style={{ color: 'var(--rose-500)', marginLeft: 8 }} />
@@ -361,47 +368,67 @@ function PhysicalReset({ onBack }) {
       <p className="activity-desc">A quick physical reset to lower stress levels.</p>
 
       {!isFinished ? (
-        <div style={{ padding: '20px 0' }}>
+        <div style={{ padding: '10px 0', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <div style={{ 
             fontSize: '3.5rem', 
             fontWeight: 800, 
             color: 'var(--rose-500)', 
             fontVariantNumeric: 'tabular-nums',
-            margin: '10px 0' 
+            margin: '5px 0' 
           }}>
             {formatTime(timeLeft)}
           </div>
           
-          <div style={{ 
-            minHeight: '60px', 
+          <div className="fade-in" key={currentTask} style={{ 
+            minHeight: '80px', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
             padding: '0 20px',
-            margin: '20px 0',
-            fontSize: '1.1rem',
-            fontWeight: 600,
+            margin: '10px 0',
+            fontSize: '1.2rem',
+            fontWeight: 700,
             color: 'var(--text-primary)',
-            transition: 'all 0.5s ease'
+            lineHeight: 1.4
           }}>
             {isActive ? currentTask : "Ready for a quick reset?"}
           </div>
 
-          <button 
-            className={`btn ${isActive ? 'btn-secondary' : 'btn-primary'}`} 
-            onClick={() => setIsActive(!isActive)}
-            style={{ width: '100%', maxWidth: '200px' }}
-          >
-            {isActive ? 'Pause' : 'Start Reset'}
-          </button>
+          {isActive && timeLeft > 0 && (
+            <div style={{ 
+              margin: '15px 20px', 
+              padding: '12px', 
+              background: 'var(--rose-50)', 
+              borderRadius: '12px',
+              border: '1px dashed var(--rose-200)',
+              textAlign: 'left'
+            }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--rose-400)', textTransform: 'uppercase', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Layers size={12} /> Incoming
+              </div>
+              <div style={{ fontSize: '0.9rem', color: 'var(--rose-700)', fontWeight: 500 }}>
+                {incomingTask}
+              </div>
+            </div>
+          )}
+
+          <div style={{ marginTop: 'auto', paddingBottom: 10 }}>
+            <button 
+              className={`btn ${isActive ? 'btn-secondary' : 'btn-primary'}`} 
+              onClick={() => setIsActive(!isActive)}
+              style={{ width: '100%', maxWidth: '240px' }}
+            >
+              {isActive ? 'Pause' : (timeLeft < 120 ? 'Resume Reset' : 'Start Reset')}
+            </button>
+          </div>
         </div>
       ) : (
-        <div className="fade-in" style={{ padding: '30px 0' }}>
-          <div style={{ fontSize: '3rem', marginBottom: 15 }}>✨</div>
-          <h4 style={{ color: 'var(--green-600)', marginBottom: 10 }}>Reset Complete!</h4>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: 20 }}>How do you feel? Your body thanks you for this small break.</p>
-          <button className="btn btn-primary" onClick={reset} style={{ width: '100%', maxWidth: '200px' }}>
-            Ready for Another?
+        <div className="fade-in" style={{ padding: '30px 0', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ fontSize: '3.5rem', marginBottom: 15 }}>✨</div>
+          <h4 style={{ color: 'var(--green-600)', marginBottom: 10, fontSize: '1.4rem' }}>Reset Complete!</h4>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 25, padding: '0 20px' }}>Your nervous system is now more regulated. How do you feel?</p>
+          <button className="btn btn-primary" onClick={reset} style={{ width: '100%', maxWidth: '240px', margin: '0 auto' }}>
+            Finish Activity
           </button>
         </div>
       )}
