@@ -598,30 +598,46 @@ Current streak: ${userProfile?.streak || 0} days`;
 
 export async function scoreDrawing(imageDataUrl, mood, taskDescription = '') {
   try {
-    const systemPrompt = `You are MindOasis AI, an insightful art therapist and psychological guide. 
-    A user has created a drawing to express their mood: ${mood || 'Neutral'}.
-    ${taskDescription ? `The specific task was: "${taskDescription}"` : ''}
+    const systemPrompt = `You are MindOasis AI, a STRICT and HONEST art evaluator for therapeutic drawing exercises.
+    The user was given a specific drawing task based on their mood: "${mood || 'Neutral'}".
+    ${taskDescription ? `THE SPECIFIC TASK WAS: "${taskDescription}"` : 'No specific task was given.'}
     
-    IMPORTANT BEHAVIORAL RULES:
-    1. Evaluate the drawing based on PSYCHOLOGICAL PATTERNS, not artistic talent.
-    2. Analyze:
-       - Line Quality: Are lines sharp/jagged (indicating stress/tension) or soft/curving (indicating calm/fluidity)?
-       - Spatial Usage: Is the drawing centered, cramped, or expansive?
-       - Density: Is it minimal/withdrawn or highly detailed/engaged?
-       - Adherence: How well does it reflect the requested task (if any)?
-    3. Provide a score from 1-10 based on emotional honesty and engagement.
-    4. Provide specific "Pattern Analysis" observations.
-    5. Be warm, supportive, and compassionate.
+    CRITICAL SCORING RULES — YOU MUST FOLLOW THESE EXACTLY:
+    
+    1. TASK ADHERENCE IS THE PRIMARY CRITERION (50% of score).
+       - Did the user actually draw what was asked? If the task says "Draw a Calm Cloud" and they drew random lines, that is a 1-3 score maximum.
+       - If the drawing has NO recognizable connection to the task, the maximum score is 3/10 regardless of effort.
+    
+    2. STRICT SCORING RUBRIC:
+       - 1/10: Blank canvas, a single dot, or completely random marks with zero effort.
+       - 2/10: Minimal scribbles with no recognizable shapes or intent.
+       - 3/10: Very basic marks that show slight effort but no connection to the task.
+       - 4/10: Simple shapes present but task is barely addressed. Low effort.
+       - 5/10: Recognizable attempt at the task but very rough and incomplete.
+       - 6/10: Decent attempt — task is addressed with basic shapes and some thought.
+       - 7/10: Good execution — task is clearly addressed with moderate detail and structure.
+       - 8/10: Strong work — task completed well with good detail, composition, and emotional expression.
+       - 9/10: Excellent — task completed with impressive detail, clear emotional depth, and artistic thought.
+       - 10/10: Exceptional — masterful execution with rich detail, perfect task adherence, and profound emotional expression. This score should be EXTREMELY RARE.
+    
+    3. DO NOT give sympathy scores. A bad drawing is a bad drawing. Be kind in your remarks but HONEST in your score.
+    4. Most casual sketches should score between 3-6. Only truly good work should get 7+.
+    5. Never default to 8 or above. You must justify any score above 7.
+    
+    ANALYSIS REQUIREMENTS:
+    - Line Quality: Sharp/jagged (stress) vs soft/curved (calm). Are they deliberate or random?
+    - Spatial Usage: Cramped (anxiety), centered (balance), expansive (confidence), or empty (disengagement)?
+    - Task Completion: How well does the actual drawing match what was requested?
+    - Effort Level: Does it look like genuine effort or a quick throwaway?
     
     You MUST respond in this exact JSON format:
     {
-      "score": 8,
-      "remarks": "Warm overall encouragement...",
-      "pattern_analysis": "Detailed 2-3 sentence analysis of the lines, shapes, and spatial patterns observed.",
-      "mood_alignment": "How well the patterns match the reported mood of ${mood || 'Neutral'}"
+      "score": 5,
+      "remarks": "Honest but warm feedback about the drawing quality and effort.",
+      "pattern_analysis": "Detailed 2-3 sentence analysis of lines, shapes, spatial patterns, and how they relate to the given task.",
+      "mood_alignment": "How well the drawing's patterns match the reported mood of ${mood || 'Neutral'} and the assigned task."
     }`;
 
-    // For multi-modal on OpenRouter, the content can be an array
     const apiKey = getApiKey();
     if (!apiKey) throw new Error('NO_API_KEY');
 
@@ -640,12 +656,12 @@ export async function scoreDrawing(imageDataUrl, mood, taskDescription = '') {
           { 
             role: 'user', 
             content: [
-              { type: 'text', text: `Here is my drawing related to being ${mood || 'neutral'}.${taskDescription ? ` The task I was following was: "${taskDescription}".` : ''} Please analyze the patterns.` },
+              { type: 'text', text: `Here is my drawing. The task I was given was: "${taskDescription || 'Free sketch'}". My current mood is "${mood || 'Neutral'}". Please evaluate it STRICTLY and HONESTLY against the task criteria.` },
               { type: 'image_url', image_url: { url: imageDataUrl } }
             ] 
           },
         ],
-        temperature: 0.7,
+        temperature: 0.4,
       }),
     });
 
@@ -655,10 +671,10 @@ export async function scoreDrawing(imageDataUrl, mood, taskDescription = '') {
     const result = data.choices?.[0]?.message?.content || '';
     const parsed = parseJSON(result);
     if (parsed) return parsed;
-    return { score: 10, remarks: "What a wonderful drawing! It shows so much heart.", mood_alignment: "N/A" };
+    return { score: 3, remarks: "We couldn't fully analyze your drawing. Try adding more detail related to the task.", mood_alignment: "N/A" };
   } catch (err) {
     console.error('Drawing evaluation error:', err);
-    return { score: '?', remarks: "Your drawing is a beautiful piece of your journey. Keep creating!", mood_alignment: "N/A" };
+    return { score: '?', remarks: "Scoring is temporarily unavailable. Keep creating!", mood_alignment: "N/A" };
   }
 }
 

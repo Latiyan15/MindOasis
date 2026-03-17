@@ -4096,7 +4096,7 @@ nav.clone-nav a.bottom-nav-item svg {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: auto;
   font-family: 'Outfit', 'Inter', sans-serif;
 }
 
@@ -4196,8 +4196,8 @@ nav.clone-nav a.bottom-nav-item svg {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  overflow: hidden;
-  height: 560px;
+  overflow-y: auto;
+  max-height: 90vh;
 }
 
 .login-logo {

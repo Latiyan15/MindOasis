@@ -90,7 +90,7 @@ function PillSelector({ options, value, onChange }) {
 }
 
 export default function Profile() {
-  const { user, saveUser, triggerLogoutTransition } = useUser();
+  const { user, saveUser, logout } = useUser();
   const navigate = useNavigate();
 
   // Editing states per section
@@ -412,7 +412,7 @@ export default function Profile() {
                 className="logout-btn-confirm" 
                 onClick={() => {
                   setShowLogoutModal(false);
-                  triggerLogoutTransition();
+                  logout();
                 }}
               >
                 Logout

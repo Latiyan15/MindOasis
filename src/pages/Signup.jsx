@@ -128,7 +128,7 @@ export default function Signup() {
         )}
       </div>
 
-      <div className="login-glass-card" style={{ height: 'auto', minHeight: 520, maxHeight: '90vh', zIndex: 1 }}>
+      <div className="login-glass-card" style={{ zIndex: 1 }}>
         {/* Logo — exactly preserved */}
         <div className="login-logo">
           <Leaf size={24} color="#5a7a4c" fill="#5a7a4c" />
@@ -316,10 +316,9 @@ export default function Signup() {
 
                 {isDropdownOpen && (
                   <div className="dropdown-menu fade-in" style={{
-                    position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 8,
+                    marginTop: 8,
                     background: 'white', borderRadius: 16, boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-                    border: '1px solid rgba(148,163,184,0.2)', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                    maxHeight: 250
+                    border: '1px solid rgba(148,163,184,0.2)', display: 'flex', flexDirection: 'column',
                   }}>
                     <div style={{ padding: '12px 12px 8px 12px', borderBottom: '1px solid rgba(148,163,184,0.1)' }}>
                       <input 
@@ -334,7 +333,7 @@ export default function Signup() {
                         autoFocus
                       />
                     </div>
-                    <div className="hide-scrollbar" style={{ overflowY: 'auto', flex: 1, padding: 8 }}>
+                    <div style={{ overflowY: 'auto', maxHeight: 200, padding: 8 }}>
                       {OCCUPATIONS.filter(occ => occ.label.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
                         <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No professions found</div>
                       ) : (

@@ -455,6 +455,7 @@ export default function Journal() {
                 <div style={{ display: 'flex', gap: 8 }}>
                   {!enhancedResult && (
                     <>
+                      {selectedMood && (
                       <button 
                         className="premium-back-btn" 
                         style={{ padding: '8px 16px', background: 'white', border: '1px solid var(--primary-200)' }}
@@ -463,6 +464,7 @@ export default function Journal() {
                       >
                         {scoring ? 'Scoring...' : 'Score My Drawing'}
                       </button>
+                      )}
                       <button 
                         className="premium-save-btn" 
                         style={{ padding: '8px 16px', fontWeight: 700, background: 'var(--primary-600)', boxShadow: '0 4px 12px rgba(92,127,74,0.3)' }}
@@ -599,7 +601,7 @@ export default function Journal() {
 
               {/* Drawing Analysis Result (Score & Patterns) */}
               {drawingAnalysis && !enhancedResult && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="fade-in premium-ai-reflection" style={{ marginTop: 20 }}>
+                <div className="fade-in premium-ai-reflection" style={{ marginTop: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <Brain size={16} color="var(--primary-600)" />
@@ -625,7 +627,7 @@ export default function Journal() {
                      <button className="premium-back-btn" style={{ padding: '8px 16px', fontSize: '0.8rem', background: 'white' }} onClick={() => setDrawingAnalysis(null)}>Close Analysis</button>
                      <button className="premium-save-btn" style={{ padding: '8px 16px', fontSize: '0.8rem' }} onClick={() => handleSave()}>Save Entry with Score</button>
                   </div>
-                </motion.div>
+                </div>
               )}
             </div>
           )}
