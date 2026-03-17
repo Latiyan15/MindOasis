@@ -455,16 +455,22 @@ export default function Journal() {
                 <div style={{ display: 'flex', gap: 8 }}>
                   {!enhancedResult && (
                     <>
-                      {selectedMood && (
-                      <button 
-                        className="premium-back-btn" 
-                        style={{ padding: '8px 16px', background: 'white', border: '1px solid var(--primary-200)' }}
-                        onClick={handleScoreDrawing}
-                        disabled={scoring || isEnhancing}
-                      >
-                        {scoring ? 'Scoring...' : 'Score My Drawing'}
-                      </button>
-                      )}
+                      <div title={!selectedMood ? "Select a mood first to get a drawing task before scoring" : ""}>
+                        <button 
+                          className="premium-back-btn" 
+                          style={{ 
+                            padding: '8px 16px', 
+                            background: 'white', 
+                            border: '1px solid var(--primary-200)',
+                            opacity: (!selectedMood || scoring || isEnhancing) ? 0.5 : 1,
+                            cursor: (!selectedMood || scoring || isEnhancing) ? 'not-allowed' : 'pointer'
+                          }}
+                          onClick={handleScoreDrawing}
+                          disabled={!selectedMood || scoring || isEnhancing}
+                        >
+                          {scoring ? 'Scoring...' : 'Score My Drawing'}
+                        </button>
+                      </div>
                       <button 
                         className="premium-save-btn" 
                         style={{ padding: '8px 16px', fontWeight: 700, background: 'var(--primary-600)', boxShadow: '0 4px 12px rgba(92,127,74,0.3)' }}
