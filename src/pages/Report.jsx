@@ -128,7 +128,7 @@ export default function Report() {
   );
 
   return (
-    <div className="report-page-bg fade-in" style={{ paddingBottom: 100 }}>
+    <div className="report-page-bg fade-in">
       <div style={{ padding: '30px 6%', position: 'relative', zIndex: 10 }}>
         <h1 style={{ fontSize: '1.8rem', color: '#3a4436', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
           <LineChart size={28} color="#429f5f" strokeWidth={2.5} /> Wellness Report

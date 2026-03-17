@@ -5151,10 +5151,9 @@ nav.clone-nav a.bottom-nav-item svg {
 }
 /* ===== REPORT REDESIGN ===== */
 .report-page-bg {
-  min-height: 100vh;
-  background-color: #f2efe9; /* Matching the warm off-white from mockup */
+  background-color: #f2efe9;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .report-hero-container {
@@ -5162,7 +5161,6 @@ nav.clone-nav a.bottom-nav-item svg {
   justify-content: center;
   align-items: center;
   padding: 20px;
-  min-height: calc(100vh - 180px);
 }
 
 .report-glass-card {

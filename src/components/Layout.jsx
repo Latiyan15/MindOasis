@@ -23,7 +23,7 @@ export default function Layout({ children }) {
   return (
     <div className="mobile-app">
       {/* Main scrollable content */}
-      <main className="mobile-content" key={location.pathname} style={{ padding: 0 }}>
+      <main className="mobile-content" key={location.pathname} style={{ padding: '0 0 110px 0' }}>
         {children}
       </main>
 

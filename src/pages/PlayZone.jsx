@@ -18,7 +18,7 @@ export default function PlayZone() {
   const userLevel = user ? getLevel(user.mindPoints || 0) : 1;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#fdfbf7', padding: '40px 20px', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ background: '#fdfbf7', padding: '40px 20px', fontFamily: 'Inter, sans-serif' }}>
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
         
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 48 }}>
